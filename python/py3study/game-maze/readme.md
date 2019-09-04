@@ -1,0 +1,1 @@
+迷宫数据生成采用的是[razimantv的迷宫生成器](https://github.com/razimantv/mazegenerator)生成的SVG数据。
