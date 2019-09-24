@@ -1,32 +1,31 @@
-import numpy
+import numpy as np
 # scipy.special for the sigmoid function expit()
 import scipy.special
 import pickle
 
 # neural network with 1 hiden layer
 class NN1h:
-
     # initialise the neural network
-    def __init__(self, inputnodes=5, hiddennodes=5, outputnodes=5, learningrate=0.1):
+    def __init__(self, hiddennodes=5, learningrate=0.1):
         # set number of nodes in each input, hidden, output layer
-        self.inodes = inputnodes
+        self.inodes = None
         self.hnodes = hiddennodes
-        self.onodes = outputnodes
+        self.onodes = None
+        # learning rate
+        self.lr = learningrate
+
+        # activation function is the sigmoid function
+        self.activation_function = scipy.special.expit
 
         # link weight matrices, wih and who
         # weights inside the arrays are w_i_j, where link is from node i to node j in the next layer
         # w11 w21
         # w12 w22 etc
-        self.wih = numpy.random.normal(0.0, pow(self.inodes, -0.5), (self.hnodes, self.inodes))
-        self.who = numpy.random.normal(0.0, pow(self.hnodes, -0.5), (self.onodes, self.hnodes))
+        self.wih = None
+        self.who = None
 
-        # learning rate
-        self.lr = learningrate
-
-        # activation function is the sigmoid function
-        self.activation_function = lambda x: scipy.special.expit(x)
-
-        pass
+    def __str__(self):
+        return f'NN1h({self.inodes}-{self.hnodes}-{self.onodes}-{self.lr})'
 
     def save(self, f):
         pickle.dump((
@@ -38,141 +37,149 @@ class NN1h:
 
     # train the neural network
     def train(self, inputs_list, targets_list):
-        # convert inputs list to 2d array
-        inputs = numpy.array(inputs_list, ndmin=2).T
-        targets = numpy.array(targets_list, ndmin=2).T
+        if not self.inodes:
+            self.inodes = inputs_list.size
+            self.onodes = targets_list.size
+            self.wih = np.random.normal(0.0, pow(self.inodes, -0.5), (self.hnodes, self.inodes))
+            self.who = np.random.normal(0.0, pow(self.hnodes, -0.5), (self.onodes, self.hnodes))
+            # print(self)
 
-        # calculate signals into hidden layer
-        hidden_inputs = numpy.dot(self.wih, inputs)
-        # calculate the signals emerging from hidden layer
-        hidden_outputs = self.activation_function(hidden_inputs)
-
-        # calculate signals into final output layer
-        final_inputs = numpy.dot(self.who, hidden_outputs)
-        # calculate the signals emerging from final output layer
-        final_outputs = self.activation_function(final_inputs)
-
+        inputs, hidden_inputs, hidden_outputs, final_inputs, final_outputs = self.query(inputs_list)
+        # print(final_outputs.argmax(), targets_list.argmax())
+        targets = np.array(targets_list, ndmin=2).T
         # output layer error is the (target - actual)
-        output_errors = targets - final_outputs
-        # hidden layer error is the output_errors, split by weights, recombined at hidden nodes
-        hidden_errors = numpy.dot(self.who.T, output_errors)
 
-        # update the weights for the links between the hidden and output layers
-        self.who += self.lr * numpy.dot((output_errors * final_outputs * (1.0 - final_outputs)),
-                                        numpy.transpose(hidden_outputs))
+        output_errors = targets - final_outputs
+        self.who += self.lr * np.dot((output_errors * final_outputs * (1.0 - final_outputs)),
+                                        np.transpose(hidden_outputs))
 
         # update the weights for the links between the input and hidden layers
-        self.wih += self.lr * numpy.dot((hidden_errors * hidden_outputs * (1.0 - hidden_outputs)),
-                                        numpy.transpose(inputs))
+        hidden_errors = np.dot(self.who.T, output_errors)
+        self.wih += self.lr * np.dot((hidden_errors * hidden_outputs * (1.0 - hidden_outputs)),
+                                        np.transpose(inputs))
 
-        pass
+        return output_errors
 
     # query the neural network
     def query(self, inputs_list):
         # convert inputs list to 2d array
-        inputs = numpy.array(inputs_list, ndmin=2).T
-
+        inputs = np.array(inputs_list, ndmin=2).T
+        # print(inputs)
         # calculate signals into hidden layer
-        hidden_inputs = numpy.dot(self.wih, inputs)
+        hidden_inputs = np.dot(self.wih, inputs)
+        # print(hidden_inputs)
         # calculate the signals emerging from hidden layer
         hidden_outputs = self.activation_function(hidden_inputs)
-
+        # print(hidden_outputs)
         # calculate signals into final output layer
-        final_inputs = numpy.dot(self.who, hidden_outputs)
+        final_inputs = np.dot(self.who, hidden_outputs)
+        # print(final_inputs)
+
         # calculate the signals emerging from final output layer
         final_outputs = self.activation_function(final_inputs)
+        # print(final_outputs)
 
-        return final_outputs
+        return inputs, hidden_inputs, hidden_outputs, final_inputs, final_outputs
 
 
-# neural network with 1 hiden layer
-class NN2h:
+class NNnh:
+    def __init__(self, hnodes, hlayers=1, learningrate=.1):
+        self.hlayers = hlayers
+        self.hnodes = hnodes
+        self.inodes = None
+        self.onodes = None
+        self.learningrate = learningrate
+        self.activation_function = scipy.special.expit
+        self.whh = []
+        self.is_init_train = False
 
-    # initialise the neural network
-    def __init__(self, inputnodes=5, hidden1nodes=5, hidden2nodes=5, outputnodes=5, learningrate=0.1):
-        # set number of nodes in each input, hidden, output layer
-        self.inodes = inputnodes
-        self.h1nodes = hidden1nodes
-        self.h2nodes = hidden2nodes
-        self.onodes = outputnodes
+    def __str__(self):
+        return f'NNnh({self.inodes}-({self.hnodes}-{self.hlayers})-{self.onodes}-{self.learningrate})'
 
-        # link weight matrices, wih and who
-        # weights inside the arrays are w_i_j, where link is from node i to node j in the next layer
-        # w11 w21
-        # w12 w22 etc
-        self.wih1 = numpy.random.normal(0.0, pow(self.inodes, -0.5), (self.h1nodes, self.inodes))
-        self.wh1h2 = numpy.random.normal(0.0, pow(self.h1nodes, -0.5), (self.h1nodes, self.h2nodes))
-        self.wh2o = numpy.random.normal(0.0, pow(self.h2nodes, -0.5), (self.onodes, self.h2nodes))
+    def query(self, inputs_list):
+        inputs = np.array(inputs_list, ndmin=2).T
+        # print(inputs_list, inputs)
 
-        # learning rate
-        self.lr = learningrate
+        outputs_ar = [inputs]
 
-        # activation function is the sigmoid function
-        self.activation_function = lambda x: scipy.special.expit(x)
+        for wh in self.whh:
+            inputs = np.dot(wh, inputs)
+            inputs = self.activation_function(inputs)
+            outputs_ar.append(inputs)
 
-        pass
+        return outputs_ar
 
-    def save(self, f):
-        pickle.dump((
-            self.inodes, self.h1nodes, self.h2nodes, self.onodes, self.wih1, self.wh1h2, self.wh2o, self.lr
-        ), f)
-
-    def load(self, f):
-        self.inodes, self.h1nodes, self.h2nodes, self.onodes, self.wih1, self.wh1h2, self.wh2o, self.lr = pickle.load(f)
-
-    # train the neural network
     def train(self, inputs_list, targets_list):
-        # convert inputs list to 2d array
-        inputs = numpy.array(inputs_list, ndmin=2).T
-        targets = numpy.array(targets_list, ndmin=2).T
+        if not self.is_init_train:
+            self.init_train(inputs_list, targets_list)
 
-        # calculate signals into hidden layer
-        hidden1_inputs = numpy.dot(self.wih1, inputs)
-        hidden1_outputs = self.activation_function(hidden1_inputs)
+        outputs_ar = self.query(inputs_list)
 
-        hidden2_inputs = numpy.dot(self.wh1h2, hidden1_outputs)
-        # calculate the signals emerging from hidden layer
-        hidden2_outputs = self.activation_function(hidden2_inputs)
+        targets = np.array(targets_list, ndmin=2).T
 
-        # calculate signals into final output layer
-        final_inputs = numpy.dot(self.wh2o, hidden2_outputs)
-        # calculate the signals emerging from final output layer
-        final_outputs = self.activation_function(final_inputs)
+        errors = None
+        ei = None
+        ei1 = None
+        for i in range(len(self.whh)-1, -1, -1):
+            oi1 = outputs_ar[i+1]
+            oi = outputs_ar[i]
+            if ei is None:
+                ei = targets - oi1
+                errors = ei
+            else:
+                ei = np.dot(wi1.T, ei1)
+            ei1 = ei
+            wi1 = self.whh[i]
 
-        # output layer error is the (target - actual)
-        output_errors = targets - final_outputs
-        # hidden layer error is the output_errors, split by weights, recombined at hidden nodes
-        hidden_errors = numpy.dot(self.wh2o.T, output_errors)
+            self.whh[i] += self.learningrate * np.dot((ei * oi1 * (1.0 - oi1)),
+                                      np.transpose(oi))
 
-        # update the weights for the links between the hidden and output layers
-        self.wh2o += self.lr * numpy.dot((output_errors * final_outputs * (1.0 - final_outputs)),
-                                        numpy.transpose(hidden2_outputs))
+        return errors
 
-        # update the weights for the links between the input and hidden layers
-        self.wh1h2 += self.lr * numpy.dot((hidden_errors * hidden2_outputs * (1.0 - hidden2_outputs)),
-                                        numpy.transpose(hidden1_outputs))
+    def init_train(self, inputs_list, targets_list):
+        self.inodes = inputs_list.size
+        self.onodes = targets_list.size
+        wih = np.random.normal(0.0, pow(self.inodes, -0.5), (self.hnodes, self.inodes))
+        self.whh.append(wih)
 
-        self.wih1 += self.lr * numpy.dot((hidden_errors * hidden1_outputs * (1.0 - hidden1_outputs)),
-                                        numpy.transpose(inputs))
+        for l in range(self.hlayers - 1):
+            wl = np.random.normal(0.0, pow(self.hnodes, -0.5), (self.hnodes, self.hnodes))
+            self.whh.append(wl)
 
-        pass
+        who = np.random.normal(0.0, pow(self.hnodes, -0.5), (self.onodes, self.hnodes))
+        self.whh.append(who)
 
-    # query the neural network
-    def query(self, inputs_list):
-        # convert inputs list to 2d array
-        inputs = numpy.array(inputs_list, ndmin=2).T
+        self.is_init_train = True
 
-        # calculate signals into hidden layer
-        hidden1_inputs = numpy.dot(self.wih1, inputs)
-        hidden1_outputs = self.activation_function(hidden1_inputs)
 
-        # calculate the signals emerging from hidden layer
-        hidden2_inputs = numpy.dot(self.wh1h2, hidden1_outputs)
-        hidden2_outputs = self.activation_function(hidden2_inputs)
+def train_test(n, target_num, train_datas, test_datas, epochs=3):
+    import time
+    import numpy as np
+    performance = 0
+    for e in range(epochs):
+        loss = .0
+        t = time.time()
+        for id_, inputs in train_datas:
+            targets = np.zeros(target_num) + 0.01
+            targets[id_] = 0.99
+            errors = n.train(inputs, targets)
+            # print(inputs, targets, errors)
+            # return
+            loss += errors.sum()
+        t = time.time() - t
+        performance += t
+        loss /= len(train_datas)
 
-        # calculate signals into final output layer
-        final_inputs = numpy.dot(self.wh2o, hidden2_outputs)
-        # calculate the signals emerging from final output layer
-        final_outputs = self.activation_function(final_inputs)
+        scorecard = []
+        for id_, inputs in test_datas:
+            outputs = n.query(inputs)[-1]
+            label = outputs.argmax()
+            if label == id_:
+                scorecard.append(1)
+            else:
+                scorecard.append(0)
 
-        return final_outputs
+        scorecard_array = np.asarray(scorecard)
+        r = scorecard_array.sum() * 100 / scorecard_array.size
+        print(e, loss, f'{r}%', f'{t}s')
+    print(str(n), epochs, performance)
