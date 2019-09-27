@@ -5,8 +5,9 @@ import os.path
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 transform = transforms.Compose(
-    [transforms.ToTensor(),
-     transforms.Normalize((0.5, ), (0.5, )),
+    [
+     transforms.ToTensor(),
+     transforms.Normalize((0.5,), (0.5,)),
      ])
 
 root = os.path.join(BASE_DIR, '../data/')
@@ -25,15 +26,15 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 
-class Net(nn.Module):
+class Net1(nn.Module):
     def __init__(self):
-        super(Net, self).__init__()
+        super(Net1, self).__init__()
         self.conv1 = nn.Conv2d(1, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
         self.fc1 = nn.Linear(16 * 4 * 4, 120)
         self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 10)
+        self.fc3 = nn.Linear(84, 100)
 
     def forward(self, x):
         # print('input', x.shape)
@@ -82,51 +83,103 @@ class Net(nn.Module):
 # relu torch.Size([1, 84])
 # Linear torch.Size([1, 100])
 
-net = Net()
+class Net2(nn.Module):
+    def __init__(self):
+        super(Net2, self).__init__()
+        self.conv1 = nn.Conv2d(1, 6, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(6, 16, 5)
+        self.fc1 = nn.Linear(16 * 4 * 4, 10)
+
+    def forward(self, x):
+        # print('input', x.shape)
+        x = self.conv1(x)
+        # print('conv', x.shape)
+        x = F.relu(x)
+        # print('relu', x.shape)
+        x = self.pool(x)
+        # print('pool', x.shape)
+
+        x = self.conv2(x)
+        # print('conv', x.shape)
+        x = F.relu(x)
+        # print('relu', x.shape)
+        x = self.pool(x)
+        # print('pool', x.shape)
+
+        x = x.view(-1, 16 * 4 * 4)
+        # print('view', x.shape)
+
+        x = self.fc1(x)
+        return x
+
+
+class Train:
+    def __init__(self, nets):
+        self.nets = nets
+        self.optimizers = [optim.SGD(net.parameters(), lr=0.001, momentum=0.9) for net in nets]
+        self.running_losss = [.0]*len(nets)
+    def start_train(self):
+        self.reset_loss()
+        for net in self.nets:
+            net.train()
+
+    def reset_loss(self):
+        self.running_losss = [.0] * len(self.nets)
+
+    def train(self, inputs, labels):
+        for i in range(len(self.nets)):
+            net, optimizer = self.nets[i], self.optimizers[i],
+            optimizer.zero_grad()
+            outputs = net(inputs)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+            self.running_losss[i] += loss.item()
+
+    def start_test(self):
+        self.corrects = [0] * len(self.nets)
+        self.totals = [0] * len(self.nets)
+        for net in self.nets:
+            net.eval()
+
+    def test(self, inputs, labels):
+        for i in range(len(self.nets)):
+            net = self.nets[i]
+            outputs = net(images)
+            _, predicted = torch.max(outputs.data, 1)
+            self.totals[i] += labels.size(0)
+            self.corrects[i] += (predicted == labels).sum().item()
+
 
 criterion = nn.CrossEntropyLoss()
 
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+train = Train([Net1(), Net2()])
 
 for epoch in range(10):  # loop over the dataset multiple times
-
-    net.train()
-    running_loss = 0.0
+    train.start_train()
+    print('start epoch', epoch+1)
     for i, data in enumerate(trainloader, 0):
         # get the inputs; data is a list of [inputs, labels]
         inputs, labels = data
-
         # zero the parameter gradients
-        optimizer.zero_grad()
+        train.train(inputs, labels)
 
-        # forward + backward + optimize
-        outputs = net(inputs)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
+        if i % 5000 == 4999:    # print every 2000 mini-batches
+            print(i + 1, [i/5000 for i in train.running_losss])
+            train.reset_loss()
 
-        # print statistics
-        running_loss += loss.item()
-        if i % 5000 == 4999:  # print every 2000 mini-batches
-            print('[%d, %5d] loss: %.3f' %
-                  (epoch + 1, i + 1, running_loss / 5000))
-            running_loss = 0.0
-
-    correct = 0
-    total = 0
-    net.eval()
+    train.start_test()
     with torch.no_grad():
         for data in testloader:
             images, labels = data
-            outputs = net(images)
+            train.test(images, labels)
 
-            _, predicted = torch.max(outputs.data, 1)
+    for correct, total in zip(train.corrects, train.totals):
+        print(f'{correct} / {total}, {100 * correct / total}%')
 
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
+    print()
 
-    print(f'{correct} / {total}, {100 * correct / total}%')
 
 
 #

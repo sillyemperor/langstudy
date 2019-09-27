@@ -134,11 +134,12 @@ def prepare(ar):
 
 
 def array2rgb(ar):
-    red = ar[:1024]
-    green = ar[1024:2048]
-    blue = ar[2048:]
+    size = len(ar)/3
+    red = ar[:size]
+    green = ar[size:size*2]
+    blue = ar[size*2:]
 
-    for i in range(1024):
+    for i in range(size):
         yield red[i], green[i], blue[i]
 
 
