@@ -5,6 +5,7 @@ import torchvision
 import torchvision.transforms as transforms
 import os.path
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+import time
 
 transform = transforms.Compose(
     [transforms.RandomSizedCrop(224),
@@ -26,18 +27,33 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=4,
 
 vgg16 = models.vgg16()
 model = vgg16
+print(model)
+for param in model.parameters():
+    param.requires_grad = False
+
+model.classifier = nn.Sequential(nn.Linear(in_features=25088, out_features=4096, bias=True),
+    nn.ReLU(inplace=True),
+    nn.Dropout(p=0.5, inplace=False),
+    nn.Linear(in_features=4096, out_features=4096, bias=True),
+    nn.ReLU(inplace=True),
+    nn.Dropout(p=0.5, inplace=False),
+    nn.Linear(in_features=4096, out_features=100, bias=True)
+)
+print(model)
 
 criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(model.classifier.parameters(), lr=0.001)
 
-optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+train_times = 0
+for epoch in range(10):  # loop over the dataset multiple times
 
-model.train()
-for epoch in range(2):  # loop over the dataset multiple times
-
+    model.train()
     running_loss = 0.0
+    t = time.time()
     for i, data in enumerate(trainloader, 0):
         # get the inputs; data is a list of [inputs, labels]
         inputs, labels = data
+
         # zero the parameter gradients
         optimizer.zero_grad()
 
@@ -49,30 +65,23 @@ for epoch in range(2):  # loop over the dataset multiple times
 
         # print statistics
         running_loss += loss.item()
-        if i % 2000 == 1999:    # print every 2000 mini-batches
+        if i % 100 == 99:  # print every 2000 mini-batches
             print('[%d, %5d] loss: %.3f' %
-                  (epoch + 1, i + 1, running_loss / 2000))
+                  (epoch + 1, i + 1, running_loss / 100))
             running_loss = 0.0
+    train_times += time.time() - t
 
-print('Finished Training')
+    correct = 0
+    total = 0
+    model.eval()
+    with torch.no_grad():
+        for data in testloader:
+            images, labels = data
+            outputs = model(images)
 
-model.train(mode=False)
-correct = 0
-total = 0
-with torch.no_grad():
-    for data in testloader:
-        images, labels = data
-        outputs = model(images)
+            _, predicted = torch.max(outputs.data, 1)
 
-        _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
 
-        total += labels.size(0)
-        correct += (predicted == labels).sum().item()
-        if not total%1000:
-            print(100 * correct / total)
-
-print('Accuracy of the network on the 10000 test images: %d %%' % (
-    100 * correct / total))
-
-
-
+    print(f'{epoch} {correct} / {total}, {100 * correct / total}% {train_times}')
