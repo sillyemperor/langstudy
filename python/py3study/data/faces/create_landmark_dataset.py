@@ -9,13 +9,13 @@ Download a trained facial shape predictor from:
 import dlib
 import glob
 import csv
-from skimage import io
+import imageio
 
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
 num_landmarks = 68
 
-with open('face_landmarks.csv', 'w', newline='') as csvfile:
+with open('face_landmarks_1.csv', 'w', newline='') as csvfile:
     csv_writer = csv.writer(csvfile)
 
     header = ['image_name']
@@ -25,7 +25,7 @@ with open('face_landmarks.csv', 'w', newline='') as csvfile:
     csv_writer.writerow(header)
 
     for f in glob.glob('*.jpg'):
-        img = io.imread(f)
+        img = imageio.imread(f)
         dets = detector(img, 1)  # face detection
 
         # ignore all the files with no or more than one faces detected.
